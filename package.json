@@ -13,8 +13,12 @@
   "keywords": [],
   "author": "tapioca24",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "hls.js": "^0.12.4"
+  },
   "devDependencies": {
+    "@types/hls.js": "^0.12.5",
+    "@types/jest": "^23.3.14",
     "jest": "^23.6.0",
     "ts-jest": "^23.10.5",
     "typescript": "^3.5.3"
