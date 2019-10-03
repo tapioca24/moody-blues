@@ -13,6 +13,10 @@
   "keywords": [],
   "author": "tapioca24",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tapioca24/moody-blues.git"
+  },
   "dependencies": {
     "events": "^3.0.0",
     "hls.js": "^0.12.4"
@@ -24,5 +28,9 @@
     "jest": "^23.6.0",
     "ts-jest": "^23.10.5",
     "typescript": "^3.5.3"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/tapioca24/moody-blues/issues"
+  },
+  "homepage": "https://github.com/tapioca24/moody-blues#readme"
 }
