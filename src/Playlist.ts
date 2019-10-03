@@ -1,3 +1,5 @@
+import { MoodyBlues } from "./@types/index";
+
 class Playlist {
   private list: MoodyBlues.Clip[] = [];
   private index = -1;
@@ -23,15 +25,15 @@ class Playlist {
   }
 
   hasNext() {
-    return this.index < this.size - 1
+    return this.index < this.size - 1;
   }
 
   next() {
     if (!this.hasNext()) {
-      return null
+      return null;
     }
     this.index++;
-    return this.list[this.index]
+    return this.list[this.index];
   }
 
   private wrap(clips: MoodyBlues.Clip | MoodyBlues.Clip[]) {

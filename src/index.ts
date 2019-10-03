@@ -1,7 +1,8 @@
 import Hls from "hls.js";
 import { EventEmitter } from "events";
 
-import Playlist from "@/Playlist";
+import { MoodyBlues } from "./@types/index";
+import Playlist from "./Playlist";
 
 class MoodyBlues extends EventEmitter {
   hls: Hls | null;
