@@ -14,9 +14,11 @@
   "author": "tapioca24",
   "license": "MIT",
   "dependencies": {
+    "events": "^3.0.0",
     "hls.js": "^0.12.4"
   },
   "devDependencies": {
+    "@types/events": "^3.0.0",
     "@types/hls.js": "^0.12.5",
     "@types/jest": "^23.3.14",
     "jest": "^23.6.0",
