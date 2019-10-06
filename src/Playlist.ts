@@ -1,4 +1,4 @@
-import { MoodyBlues } from "./@types/index";
+import MoodyBlues from './index'
 
 class Playlist {
   private list: MoodyBlues.Clip[] = [];

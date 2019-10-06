@@ -7,13 +7,7 @@
     "sourceMap": true,
     "outDir": "./dist",
     "strict": true,
-    "esModuleInterop": true,
-    "baseUrl": "./src/",
-    "paths": {
-      "@/*": [
-        "*"
-      ]
-    }
+    "esModuleInterop": true
   },
   "include": [
     "src/**/*"
