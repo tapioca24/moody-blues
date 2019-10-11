@@ -1,6 +1,6 @@
 # moody-blues
 
-moody-blues is a JavaScript library for HLS players powered by [hls.js](https://github.com/video-dev/hls.js).  
+moody-blues is a JavaScript library for HLS player powered by [hls.js](https://github.com/video-dev/hls.js).  
 It has the following features.
 
 - Playlist support
