@@ -51,8 +51,8 @@ The clip object has the following properties:
 
 | Property | Type   | Required | Description                                      |
 | -------- | ------ | -------- | ------------------------------------------------ |
-| `source`   | String | Required | Specify the HLS source URL.                      |
-| `start`    | Number | Optional | Specify the number of seconds to start playback. |
+| `source`   | String | x | Specify the HLS source URL.                      |
+| `start`    | Number |   | Specify the number of seconds to start playback. |
 
 ## Options
 
