@@ -1,4 +1,4 @@
-import MoodyBlues from './index'
+import MoodyBlues from "./index";
 
 class Playlist {
   private list: MoodyBlues.Clip[] = [];
@@ -10,9 +10,9 @@ class Playlist {
 
   get currentClip() {
     if (this.index < 0 || this.size <= this.index) {
-      return null
+      return null;
     }
-    return this.list[this.index]
+    return this.list[this.index];
   }
 
   clear() {
