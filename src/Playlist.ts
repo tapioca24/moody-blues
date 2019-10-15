@@ -8,6 +8,13 @@ class Playlist {
     return this.list.length;
   }
 
+  get currentClip() {
+    if (this.index < 0 || this.size <= this.index) {
+      return null
+    }
+    return this.list[this.index]
+  }
+
   clear() {
     this.list = [];
     this.index = -1;

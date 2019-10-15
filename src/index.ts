@@ -255,6 +255,10 @@ class MoodyBlues extends EventEmitter {
     }
   }
 
+  get currentClip () {
+    return this.playlist.currentClip
+  }
+
   resume() {
     if (this.video) {
       this.video.play();
@@ -264,6 +268,16 @@ class MoodyBlues extends EventEmitter {
   pause() {
     if (this.video) {
       this.video.pause();
+    }
+  }
+
+  toggle() {
+    if (this.video) {
+      if (this.video.paused) {
+        this.video.play();
+      } else {
+        this.video.pause();
+      }
     }
   }
 
@@ -391,6 +405,7 @@ namespace MoodyBlues {
   export interface Clip {
     source: string;
     start?: number;
+    live?: boolean;
   }
 
   export enum Events {
