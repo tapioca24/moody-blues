@@ -1,49 +1,49 @@
 import MoodyBlues from "./index";
 
 class Playlist {
-  private list: MoodyBlues.Clip[] = [];
-  private index = -1;
+  private _list: MoodyBlues.Clip[] = [];
+  private _index = -1;
 
   get size() {
-    return this.list.length;
+    return this._list.length;
   }
 
   get currentClip() {
-    if (this.index < 0 || this.size <= this.index) {
+    if (this._index < 0 || this.size <= this._index) {
       return null;
     }
-    return this.list[this.index];
+    return this._list[this._index];
   }
 
   clear() {
-    this.list = [];
-    this.index = -1;
+    this._list = [];
+    this._index = -1;
   }
 
   set(clips: MoodyBlues.Clip | MoodyBlues.Clip[]) {
-    clips = this.wrap(clips);
-    this.list = clips;
-    this.index = -1;
+    clips = this._wrap(clips);
+    this._list = clips;
+    this._index = -1;
   }
 
   push(clips: MoodyBlues.Clip | MoodyBlues.Clip[]) {
-    clips = this.wrap(clips);
-    this.list = this.list.concat(clips);
+    clips = this._wrap(clips);
+    this._list = this._list.concat(clips);
   }
 
   hasNext() {
-    return this.index < this.size - 1;
+    return this._index < this.size - 1;
   }
 
   next() {
     if (!this.hasNext()) {
       return null;
     }
-    this.index++;
-    return this.list[this.index];
+    this._index++;
+    return this._list[this._index];
   }
 
-  private wrap(clips: MoodyBlues.Clip | MoodyBlues.Clip[]) {
+  private _wrap(clips: MoodyBlues.Clip | MoodyBlues.Clip[]) {
     if (Array.isArray(clips)) {
       return clips;
     }

@@ -4,16 +4,19 @@ import Playlist from "./Playlist";
 
 class MoodyBlues extends EventEmitter {
   protected _video: HTMLVideoElement | null;
-  protected config: MoodyBlues.Config;
-  protected playlist: Playlist;
-  protected hls: Hls | null = null;
+  protected _options: MoodyBlues.Options;
+  protected _config: MoodyBlues.Config;
+  protected _playlist: Playlist;
+  protected _hls: Hls | null = null;
+  protected _initialized = false;
 
   constructor(video: HTMLVideoElement, options: MoodyBlues.Options = {}) {
     super();
     this._video = video;
-    this.playlist = new Playlist();
+    this._playlist = new Playlist();
+    this._options = options;
 
-    this.config = {
+    this._config = {
       debug: options.debug || false,
       useNativeWheneverPossible: options.useNativeWheneverPossible || false
     };
@@ -24,15 +27,11 @@ class MoodyBlues extends EventEmitter {
     }
 
     // video 要素のイベントハンドラを設定
-    this.setupVideoEventHandlers();
+    this._setupVideoEventHandlers();
+    this.on(MoodyBlues.Events.Finish, this._playNext, this);
 
-    if (this.useNative) {
-      this.setupNative(options);
-    } else {
-      this.setupHls(options);
-    }
-
-    this.on(MoodyBlues.Events.Finish, this.playNext, this);
+    this._setup(options);
+    this._initialized = true;
   }
 
   /**
@@ -53,62 +52,95 @@ class MoodyBlues extends EventEmitter {
    * ネイティブの HLS 再生を使用するか否かを取得する
    */
   get useNative() {
-    return this.supported.native && this.config.useNativeWheneverPossible;
+    return this.supported.native && this._config.useNativeWheneverPossible;
+  }
+
+  /**
+   * 準備する
+   */
+  protected _setup(options: MoodyBlues.Options) {
+    if (this.useNative) {
+      this._setupNative(options);
+    } else {
+      this._setupHls(options);
+    }
   }
 
   /**
    * ネイティブの HLS 再生を準備する
    */
-  protected setupNative(options: MoodyBlues.Options) {
-    this.logger("Use native video element to playback HLS");
-
-    // 最初のクリップを再生する
-    if (options.clip) {
-      this.play(options.clip);
+  protected _setupNative(options: MoodyBlues.Options) {
+    if (!this._initialized) {
+      this._logger("Use native video element to playback HLS");
     }
+
+    if (options.clip) {
+      this._playlist.set(options.clip);
+    }
+    // 最初のクリップを再生する
+    this._playNext();
   }
 
   /**
    * hls.js の HLS 再生を準備する
    */
-  protected setupHls(options: MoodyBlues.Options) {
-    this.logger("Use hls.js to playback HLS");
+  protected _setupHls(options: MoodyBlues.Options) {
+    if (!this._initialized) {
+      this._logger("Use hls.js to playback HLS");
+    }
+    // Hls 内部で hlsConfig の未指定プロパティにデフォルト値が適用されるためコピーを渡しておく
+    this._hls = new Hls({ ...options.hlsConfig });
+    this._setupHlsEventHandlers();
 
-    this.hls = new Hls(options.hlsConfig);
-
-    // hls のイベントハンドラを設定
-    this.setupHlsEventHandlers();
-
+    if (options.clip) {
+      this._playlist.set(options.clip);
+    }
     // 最初のクリップを再生する
-    this.hls.attachMedia(this._video!);
-    this.hls.once(Hls.Events.MEDIA_ATTACHED, () => {
-      if (options.clip) {
-        this.play(options.clip);
-      }
+    this._hls.attachMedia(this._video!);
+    this._hls.once(Hls.Events.MEDIA_ATTACHED, () => {
+      this._playNext();
     });
   }
 
   /**
    * hls のイベントハンドラを設定
    */
-  protected setupHlsEventHandlers() {
-    if (!this.hls) {
+  protected _setupHlsEventHandlers() {
+    if (!this._hls) {
       return;
     }
-    this.hls.on(Hls.Events.ERROR, this.onHlsError.bind(this));
+    this._hls.on(Hls.Events.ERROR, this._onHlsError.bind(this));
   }
 
   /**
    * hls のイベントハンドラを削除
    */
-  protected removeHlsEventHandlers() {
-    if (!this.hls) {
+  protected _removeHlsEventHandlers() {
+    if (!this._hls) {
       return;
     }
-    this.hls.off(Hls.Events.ERROR, this.onHlsError);
+    this._hls.off(Hls.Events.ERROR, this._onHlsError);
   }
 
-  protected onHlsError(event: "hlsError", data: Hls.errorData) {
+  protected _onHlsError(event: "hlsError", data: Hls.errorData) {
+    if (!this._hls) {
+      return;
+    }
+
+    // fatal エラーの場合はリカバーする
+    if (data.fatal) {
+      switch (data.type) {
+        case Hls.ErrorTypes.NETWORK_ERROR:
+          console.log("network error", data.details);
+          this._hls.startLoad();
+          break;
+        case Hls.ErrorTypes.MEDIA_ERROR:
+          console.log("media error", data.details);
+          this._hls.recoverMediaError();
+          break;
+      }
+    }
+
     let type: MoodyBlues.ErrorTypes;
     switch (data.type) {
       case Hls.ErrorTypes.NETWORK_ERROR:
@@ -123,117 +155,119 @@ class MoodyBlues extends EventEmitter {
       default:
         type = MoodyBlues.ErrorTypes.OtherError;
     }
+
     const errorData: MoodyBlues.ErrorData = {
       type,
-      details: data.details
+      details: data.details,
+      fatal: data.fatal
     };
-    this.logger("Error", errorData);
+    this._logger("Error", errorData);
     this.emit(MoodyBlues.Events.Error, errorData);
   }
 
   /**
    * video 要素のイベンドハンドラを設定
    */
-  protected setupVideoEventHandlers() {
+  protected _setupVideoEventHandlers() {
     if (!this._video) {
       return;
     }
-    this._video.addEventListener("ended", this.onEnded.bind(this));
+    this._video.addEventListener("ended", this._onEnded.bind(this));
     this._video.addEventListener(
       "loadedmetadata",
-      this.onLoadedmetadata.bind(this)
+      this._onLoadedmetadata.bind(this)
     );
-    this._video.addEventListener("pause", this.onPause.bind(this));
-    this._video.addEventListener("play", this.onPlay.bind(this));
-    this._video.addEventListener("progress", this.onProgress.bind(this));
-    this._video.addEventListener("ratechange", this.onRatechange.bind(this));
-    this._video.addEventListener("seeked", this.onSeeked.bind(this));
-    this._video.addEventListener("timeupdate", this.onTimeupdate.bind(this));
+    this._video.addEventListener("pause", this._onPause.bind(this));
+    this._video.addEventListener("play", this._onPlay.bind(this));
+    this._video.addEventListener("progress", this._onProgress.bind(this));
+    this._video.addEventListener("ratechange", this._onRatechange.bind(this));
+    this._video.addEventListener("seeked", this._onSeeked.bind(this));
+    this._video.addEventListener("timeupdate", this._onTimeupdate.bind(this));
     this._video.addEventListener(
       "volumechange",
-      this.onVolumechange.bind(this)
+      this._onVolumechange.bind(this)
     );
     if (this.useNative) {
-      this._video.addEventListener("error", this.onError.bind(this));
+      this._video.addEventListener("error", this._onError.bind(this));
     }
   }
 
   /**
    * video 要素のイベントハンドラを削除
    */
-  protected removeVideoEventHandlers() {
+  protected _removeVideoEventHandlers() {
     if (!this._video) {
       return;
     }
-    this._video.removeEventListener("ended", this.onEnded);
-    this._video.removeEventListener("loadedmetadata", this.onLoadedmetadata);
-    this._video.removeEventListener("pause", this.onPause);
-    this._video.removeEventListener("play", this.onPlay);
-    this._video.removeEventListener("progress", this.onProgress);
-    this._video.removeEventListener("ratechange", this.onRatechange);
-    this._video.removeEventListener("seeked", this.onSeeked);
-    this._video.removeEventListener("timeupdate", this.onTimeupdate);
-    this._video.removeEventListener("volumechange", this.onVolumechange);
+    this._video.removeEventListener("ended", this._onEnded);
+    this._video.removeEventListener("loadedmetadata", this._onLoadedmetadata);
+    this._video.removeEventListener("pause", this._onPause);
+    this._video.removeEventListener("play", this._onPlay);
+    this._video.removeEventListener("progress", this._onProgress);
+    this._video.removeEventListener("ratechange", this._onRatechange);
+    this._video.removeEventListener("seeked", this._onSeeked);
+    this._video.removeEventListener("timeupdate", this._onTimeupdate);
+    this._video.removeEventListener("volumechange", this._onVolumechange);
     if (this.useNative) {
-      this._video.removeEventListener("error", this.onError);
+      this._video.removeEventListener("error", this._onError);
     }
   }
 
-  protected onEnded(e: Event) {
-    this.logger("Finish");
+  protected _onEnded(e: Event) {
+    this._logger("Finish");
     this.emit(MoodyBlues.Events.Finish);
   }
 
-  protected onLoadedmetadata(e: Event) {
-    this.logger("Ready");
+  protected _onLoadedmetadata(e: Event) {
+    this._logger("Ready");
     this.emit(MoodyBlues.Events.Ready);
   }
 
-  protected onPause(e: Event) {
-    this.logger("Pause");
+  protected _onPause(e: Event) {
+    this._logger("Pause");
     this.emit(MoodyBlues.Events.Pause);
   }
 
-  protected onPlay(e: Event) {
-    this.logger("Resume");
+  protected _onPlay(e: Event) {
+    this._logger("Resume");
     this.emit(MoodyBlues.Events.Resume);
   }
 
-  protected onProgress(e: Event) {
+  protected _onProgress(e: Event) {
     const video = e.target as HTMLVideoElement;
-    this.logger("Buffer", video.buffered);
+    this._logger("Buffer", video.buffered);
     this.emit(MoodyBlues.Events.Buffer, video.buffered);
   }
 
-  protected onRatechange(e: Event) {
+  protected _onRatechange(e: Event) {
     const video = e.target as HTMLVideoElement;
-    this.logger("Speed", video.playbackRate);
+    this._logger("Speed", video.playbackRate);
     this.emit(MoodyBlues.Events.Speed, video.playbackRate);
   }
 
-  protected onSeeked(e: Event) {
+  protected _onSeeked(e: Event) {
     const video = e.target as HTMLVideoElement;
-    this.logger("Seek", video.currentTime);
+    this._logger("Seek", video.currentTime);
     this.emit(MoodyBlues.Events.Seek, video.currentTime);
   }
 
-  protected onTimeupdate(e: Event) {
+  protected _onTimeupdate(e: Event) {
     const video = e.target as HTMLVideoElement;
-    this.logger("Progress", video.currentTime);
+    this._logger("Progress", video.currentTime);
     this.emit(MoodyBlues.Events.Progress, video.currentTime);
   }
 
-  protected onVolumechange(e: Event) {
+  protected _onVolumechange(e: Event) {
     const video = e.target as HTMLVideoElement;
     const info = {
       volume: video.volume,
       muted: video.muted
     };
-    this.logger("Volume", info);
+    this._logger("Volume", info);
     this.emit(MoodyBlues.Events.Volume, info);
   }
 
-  protected onError(e: Event) {
+  protected _onError(e: Event) {
     const video = e.target as HTMLVideoElement;
     if (video.error) {
       let type: MoodyBlues.ErrorTypes;
@@ -253,17 +287,17 @@ class MoodyBlues extends EventEmitter {
         type,
         details: video.error.message
       };
-      this.logger("Error", errorData);
+      this._logger("Error", errorData);
       this.emit(MoodyBlues.Events.Error, errorData);
     }
   }
 
   get currentClip() {
-    return this.playlist.currentClip;
+    return this._playlist.currentClip;
   }
 
   get hasNext() {
-    return this.playlist.hasNext();
+    return this._playlist.hasNext();
   }
 
   get video() {
@@ -324,15 +358,19 @@ class MoodyBlues extends EventEmitter {
    * clip または clip の配列を再生する
    */
   play(clips: MoodyBlues.Clip | MoodyBlues.Clip[]) {
-    this.playlist.set(clips);
-    this.playNext();
+    this._destroy();
+    if (this._options.clip) {
+      delete this._options.clip;
+    }
+    this._playlist.set(clips);
+    this._setup(this._options);
   }
 
   /**
    * 次の clip があればそれを再生する
    */
-  protected playNext() {
-    const clip = this.playlist.next();
+  protected _playNext() {
+    const clip = this._playlist.next();
     if (!clip) {
       // 次の `clip` がなければ何もしない
       return;
@@ -353,11 +391,11 @@ class MoodyBlues extends EventEmitter {
         once: true
       });
     } else {
-      if (!this.hls) {
+      if (!this._hls) {
         return;
       }
-      this.hls.loadSource(clip.source);
-      this.hls.once(Hls.Events.MANIFEST_PARSED, () => seekOnStart());
+      this._hls.loadSource(clip.source);
+      this._hls.once(Hls.Events.MANIFEST_PARSED, () => seekOnStart());
     }
   }
 
@@ -366,23 +404,28 @@ class MoodyBlues extends EventEmitter {
    * @param clips 追加するクリップ、またはその配列
    */
   addClips(clips: MoodyBlues.Clip | MoodyBlues.Clip[]) {
-    this.playlist.push(clips);
+    this._playlist.push(clips);
+  }
+
+  protected _destroy() {
+    this._playlist.clear();
+    if (this._hls) {
+      this._removeHlsEventHandlers();
+      this._hls.destroy();
+      this._hls = null;
+    }
   }
 
   /**
    * 後始末
    */
   destroy() {
-    this.logger("destroy");
+    this._logger("destroy");
     if (this._video) {
-      this.removeVideoEventHandlers();
+      this._removeVideoEventHandlers();
       this._video = null;
     }
-    this.playlist.clear();
-    if (this.hls) {
-      this.removeHlsEventHandlers();
-      this.hls.destroy();
-    }
+    this._destroy();
     this.removeAllListeners();
   }
 
@@ -390,8 +433,8 @@ class MoodyBlues extends EventEmitter {
    * ログを出力
    * @param ...args ログ
    */
-  protected logger(...args: any) {
-    if (this.config.debug) {
+  protected _logger(...args: any) {
+    if (this._config.debug) {
       console.log("[moody-blues]", ...args);
     }
   }
@@ -441,7 +484,8 @@ namespace MoodyBlues {
 
   export interface ErrorData {
     type: ErrorTypes;
-    details: string | undefined;
+    details?: string;
+    fatal?: boolean;
   }
 }
 
