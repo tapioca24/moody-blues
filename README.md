@@ -25,8 +25,7 @@ const player = new MoodyBlues(video, {
   debug: true,
   clips: [{
     source: 'https://example.com/playlist.m3u8',
-    start: 10,
-    live: false
+    start: 10
   }]
 })
 ```
