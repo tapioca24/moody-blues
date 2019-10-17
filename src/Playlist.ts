@@ -43,6 +43,11 @@ class Playlist {
     return this._list[this._index];
   }
 
+  getShift() {
+    this._list.shift();
+    return this._list;
+  }
+
   private _wrap(clips: MoodyBlues.Clip | MoodyBlues.Clip[]) {
     if (Array.isArray(clips)) {
       return clips;

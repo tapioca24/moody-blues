@@ -9,61 +9,70 @@ class MoodyBlues extends EventEmitter {
   protected _playlist: Playlist;
   protected _hls: Hls | null = null;
   protected _initialized = false;
+  protected _supported = { MSE: false, native: false };
+  protected _useNative = false;
 
   constructor(video: HTMLVideoElement, options: MoodyBlues.Options = {}) {
     super();
     this._video = video;
-    this._playlist = new Playlist();
-    this._options = options;
+    this.checkSupported();
+
+    if (!this._supported.MSE && !this._supported.native) {
+      // MediaSoureceExtensions も native もサポートしていなければ例外をスロー
+      throw new Error("HLS is not supported");
+    }
 
     this._config = {
       debug: options.debug || false,
       useNativeWheneverPossible: options.useNativeWheneverPossible || false
     };
+    this._useNative =
+      this._supported.native && this._config.useNativeWheneverPossible;
 
-    if (!this.supported.MSE && !this.supported.native) {
-      // MediaSoureceExtensions も native もサポートしていなければ例外をスロー
-      throw new Error("HLS is not supported");
+    this._playlist = new Playlist();
+
+    // `options` をコピーしておく
+    this._options = { ...options };
+    if (this._options.clips) {
+      delete this._options.clips;
     }
 
     // video 要素のイベントハンドラを設定
     this._setupVideoEventHandlers();
-    this.on(MoodyBlues.Events.Finish, this._playNext, this);
+    this.on(MoodyBlues.Events.Finish, () => {
+      const clips = this._playlist.getShift();
+      this.play(clips);
+    });
 
     this._setup(options);
-    this._initialized = true;
   }
 
-  /**
-   * ブラウザの HLS のサポート状況を取得する
-   */
   get supported() {
+    return this._supported;
+  }
+
+  get useNative() {
+    return this._useNative;
+  }
+
+  protected checkSupported() {
     let native = false;
     if (this._video) {
       native = this._video.canPlayType("application/vnd.apple.mpegurl") !== "";
     }
-    return {
-      MSE: Hls.isSupported(),
-      native
-    };
-  }
-
-  /**
-   * ネイティブの HLS 再生を使用するか否かを取得する
-   */
-  get useNative() {
-    return this.supported.native && this._config.useNativeWheneverPossible;
+    this._supported = { MSE: Hls.isSupported(), native };
   }
 
   /**
    * 準備する
    */
   protected _setup(options: MoodyBlues.Options) {
-    if (this.useNative) {
+    if (this._useNative) {
       this._setupNative(options);
     } else {
       this._setupHls(options);
     }
+    this._initialized = true;
   }
 
   /**
@@ -74,8 +83,8 @@ class MoodyBlues extends EventEmitter {
       this._logger("Use native video element to playback HLS");
     }
 
-    if (options.clip) {
-      this._playlist.set(options.clip);
+    if (options.clips) {
+      this._playlist.set(options.clips);
     }
     // 最初のクリップを再生する
     this._playNext();
@@ -88,12 +97,13 @@ class MoodyBlues extends EventEmitter {
     if (!this._initialized) {
       this._logger("Use hls.js to playback HLS");
     }
-    // Hls 内部で hlsConfig の未指定プロパティにデフォルト値が適用されるためコピーを渡しておく
+
+    // Hls 内部で hlsConfig の未指定プロパティにデフォルト値が適用されるためコピーを渡す
     this._hls = new Hls({ ...options.hlsConfig });
     this._setupHlsEventHandlers();
 
-    if (options.clip) {
-      this._playlist.set(options.clip);
+    if (options.clips) {
+      this._playlist.set(options.clips);
     }
     // 最初のクリップを再生する
     this._hls.attachMedia(this._video!);
@@ -187,7 +197,7 @@ class MoodyBlues extends EventEmitter {
       "volumechange",
       this._onVolumechange.bind(this)
     );
-    if (this.useNative) {
+    if (this._useNative) {
       this._video.addEventListener("error", this._onError.bind(this));
     }
   }
@@ -208,7 +218,7 @@ class MoodyBlues extends EventEmitter {
     this._video.removeEventListener("seeked", this._onSeeked);
     this._video.removeEventListener("timeupdate", this._onTimeupdate);
     this._video.removeEventListener("volumechange", this._onVolumechange);
-    if (this.useNative) {
+    if (this._useNative) {
       this._video.removeEventListener("error", this._onError);
     }
   }
@@ -359,9 +369,6 @@ class MoodyBlues extends EventEmitter {
    */
   play(clips: MoodyBlues.Clip | MoodyBlues.Clip[]) {
     this._destroy();
-    if (this._options.clip) {
-      delete this._options.clip;
-    }
     this._playlist.set(clips);
     this._setup(this._options);
   }
@@ -382,7 +389,7 @@ class MoodyBlues extends EventEmitter {
       }
     };
 
-    if (this.useNative) {
+    if (this._useNative) {
       if (!this._video) {
         return;
       }
@@ -447,7 +454,7 @@ namespace MoodyBlues {
   export interface Options {
     debug?: boolean;
     useNativeWheneverPossible?: boolean;
-    clip?: Clip;
+    clips?: Clip | Clip[];
     hlsConfig?: Partial<Hls.Config>;
   }
 
