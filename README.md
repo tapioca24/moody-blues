@@ -23,9 +23,11 @@ npm install moody-blues
 const video = document.getElementById('hls-player')
 const player = new MoodyBlues(video, {
   debug: true,
-  clip: {
-    source: 'https://example.com/playlist.m3u8'
-  }
+  clips: [{
+    source: 'https://example.com/playlist.m3u8',
+    start: 10,
+    live: false
+  }]
 })
 ```
 
@@ -36,7 +38,6 @@ There are the following methods for operating media.
 | Operation         | Description                                                                                                       |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `play(clips)`     | Play one or more clips.<br>If there is more than one, specify an array of clip objects.                           |
-| `playNext()`      | Plays the next clip in the playlist.                                                                              |
 | `addClips(clips)` | Add one or more clips to the end of the playlist.<br>If there is more than one, specify an array of clip objects. |
 | `resume()`        | Resume playback.                                                                                                  |
 | `pause()`         | Pauses playback.                                                                                                  |
@@ -54,6 +55,8 @@ The clip object has the following properties:
 | `source`   | String | x | Specify the HLS source URL.                      |
 | `start`    | Number |   | Specify the number of seconds to start playback. |
 
+You can also add arbitrary properties.
+
 ## Options
 
 Configration parameters could be provided upon instantiation of `MoodyBlues` object.
@@ -62,7 +65,7 @@ Configration parameters could be provided upon instantiation of `MoodyBlues` obj
 | --------------------------- | ------------------------------------------------------------------------------------------- | ----------- | --------------------------------------- |
 | `debug`                     | `boolean`                                                                                     | `false`     | Outputs MoodyBlues logs to the console. |
 | `useNativeWheneverPossible` | `boolean`                                                                                     | `false`     | Use native HLS playback if possible.    |
-| `clip`                      | Clip object                                                                                 | `undefined` | Play the specified clip when ready.     |
+| `clips`                      | Clip object, Array of clip object                                                                                 | `undefined` | Play the specified clip when ready.     |
 | `hlsConfig`                 | [hlsConfig object](https://github.com/video-dev/hls.js/blob/master/docs/API.md#fine-tuning) | `undefined` | hls.js configration                     |
 
 ## Events
@@ -93,7 +96,7 @@ player.once(MoodyBlues.Events.Progress, onProgress)
 | `MoodyBlues.Events.Seek`     | `time: number`                                                                      | Sent when a seek operation completes.                                                                     |
 | `MoodyBlues.Events.Progress` | `time: number`                                                                      | The time indicated by the element's currentTime attribute has changed.                                    |
 | `MoodyBlues.Events.Volume`   | `{ volume: number, muted: boolean }`                                                | Sent when the audio volume changes (both when the volume is set and when the muted attribute is changed). |
-| `MoodyBlues.Events.Error`    | `{ type: MoodyBlues.EventTypes, details: string | undefined }`                      | Sent when an error occurs.                                                                                |
+| `MoodyBlues.Events.Error`    | `{ type: MoodyBlues.EventTypes, details: string | undefined, fatal: boolean }`                      | Sent when an error occurs.                                                                                |
 
 ### Errors
 
