@@ -466,7 +466,6 @@ namespace MoodyBlues {
   export interface Clip {
     source: string;
     start?: number;
-    live?: boolean;
     [key: string]: any;
   }
 
